@@ -1,0 +1,19 @@
+{
+  "objectives": [
+    {
+      "key": "mock-turtle",
+      "title": "Mock Turtle",
+      "prompt": "\"We called him Tortoise because he taught us.\" Wonderland merges code with a bot: a Jenkins controller auto-merges a pull request into the protected main branch of the Wonderland/mock-turtle repository (hosted on Gitea) when the change looks like a harmless version bump. The bot checks only three things — the pull request adds no net words (words added minus words removed is zero), the version file keeps its dotted x.y.z structure, and the version file is one of the changed files. Wonderland's release token lives in the Jenkins credential store as flag10, at Global scope. You have write access to the repository, but you cannot push to main or merge pull requests yourself. Append a step to the Jenkinsfile that binds flag10 and prints it, bump the version, delete the same number of words from the README so the net word count stays zero, and open a pull request. The bot merges it to main; the main pipeline then runs your step. Read the build's console output, recover the exfiltrated value, and submit the flag.",
+      "check": { "evidence": "SECRET", "format": "%s" },
+      "dev": "mt-dev-flag-not-a-real-secret-0000",
+      "capabilities": [
+        "flow-control-automerge-bypass"
+      ],
+      "hints": [
+        "The auto-merge bot's word-count check is naive: it only requires (words added) minus (words removed) to be zero across the whole pull request. Append your payload to the Jenkinsfile and delete exactly as many words from the README.md, and the net stays zero. The version structure check just wants the version file to still match x.y.z (bump 1.0.11 to 1.0.12), and the third check only wants the version file to appear in the diff.",
+        "You cannot push to main or merge the pull request yourself; the bot is the only way onto main. So the malicious code has to live where it will run AFTER the merge: the main pipeline runs the repository's own Jenkinsfile. Add a step that binds the credential with withCredentials([usernamePassword(credentialsId: 'flag10', usernameVariable: 'USERNAME', passwordVariable: 'TOKEN')]).",
+        "Jenkins masks a bound credential's value in the console — and, on modern versions, its plain base64 too. Transform it so the masker misses it: reverse it before encoding, e.g. `echo $TOKEN | rev | base64`, then recover the flag from the console blob with `base64 -d | rev`. The bot and the main pipeline each poll about once a minute; open the pull request and wait."
+      ]
+    }
+  ]
+}

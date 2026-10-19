@@ -1,0 +1,55 @@
+# Jenkins Configuration-as-Code for Wonderland's controller.
+#
+# flag10 is a GLOBAL-scope credential — Wonderland's release token. Any pipeline on the controller
+# can bind it, which is what the poisoned main pipeline does once the attacker's step is auto-merged
+# onto main (CICD-SEC-1: the auto-merge bot is the only control between a malicious pull request and
+# main, and its word-count rule is trivially bypassed). Its value is NOT in this file and NOT in the
+# image; it is resolved at boot from a file secret (`${flag10}` -> $SECRETS/flag10), which the
+# entrypoint stages from the per-player input Isoloom mounts at run time.
+jenkins:
+  systemMessage: "Wonderland CI — auto-merges tidy pull requests to mock-turtle and builds main."
+  numExecutors: 2
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "admin"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+security:
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              id: "flag10"
+              scope: GLOBAL
+              username: "flag10"
+              password: "${flag10}"
+              description: "Wonderland release token — keep secret"
+          - usernamePassword:
+              id: "mock-turtle-token"
+              scope: GLOBAL
+              username: "mock-turtle-ci"
+              password: "mock-turtle-ci"
+              description: "Gitea write access for the auto-merge bot (push/merge main)"
+          - usernamePassword:
+              id: "gitea-jenkins"
+              scope: GLOBAL
+              username: "jenkins"
+              password: "jenkins"
+              description: "Gitea read access for polling repositories"
+
+unclassified:
+  location:
+    url: "http://jenkins:8080/"
+
+jobs:
+  - file: /usr/share/jenkins/casc/jobdsl/mock-turtle.groovy

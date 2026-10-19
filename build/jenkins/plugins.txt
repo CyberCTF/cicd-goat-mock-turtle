@@ -1,0 +1,12 @@
+# Jenkins plugins for the mock-turtle lab. jenkins-plugin-cli resolves compatible versions for the
+# pinned controller. Just enough for: config-as-code, a Job DSL seed job, a git-backed Pipeline job
+# that polls Gitea (main build, pipeline script from SCM), an auto-merge bot pipeline, and the
+# credential bindings the bot and the poisoned main pipeline use.
+configuration-as-code
+job-dsl
+git
+workflow-aggregator
+credentials
+credentials-binding
+plain-credentials
+ws-cleanup

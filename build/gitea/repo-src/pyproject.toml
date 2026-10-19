@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mockturtle"
+description = "A small timetable helper for Wonderland's seaside school."
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = ["version"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.dynamic]
+version = { file = "version" }

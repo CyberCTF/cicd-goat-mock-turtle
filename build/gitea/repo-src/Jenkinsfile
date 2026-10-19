@@ -1,0 +1,39 @@
+// mock-turtle CI pipeline (declarative). Lint + unit tests for the mockturtle package.
+// Wonderland's Jenkins builds this file on the main branch of this repository. Pull-request
+// branches are handled by the auto-merge bot, not by this pipeline.
+pipeline {
+    agent any
+
+    environment {
+        PACKAGE = 'mockturtle'
+    }
+
+    stages {
+        stage('Install_Requirements') {
+            steps {
+                sh '''
+                    python3 -m venv venv || true
+                    echo "requirements installed for ${PACKAGE}"
+                '''
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh 'echo "lint ${PACKAGE}: ok"'
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh 'echo "pytest ${PACKAGE}: ok"'
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}

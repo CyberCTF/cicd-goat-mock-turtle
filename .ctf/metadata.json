@@ -1,0 +1,13 @@
+{
+  "project_name": "cyberlabs-cicd-goat-mock-turtle",
+  "slug": "cicd-goat-mock-turtle",
+  "title": "Mock Turtle: insufficient flow control (auto-merge bot bypass)",
+  "description": "A Jenkins controller auto-merges pull requests into the protected main branch of Wonderland's mock-turtle repository (hosted on Gitea) whenever a change looks like a harmless version bump: the bot checks only that the pull request adds no net words, that the version file keeps its dotted structure, and that the version file changed. An attacker with write access appends a flag-exfiltration step to the Jenkinsfile and deletes an equal number of words from the README (so the net word count stays zero), bumps the version, and opens a pull request; the bot merges it to main, the main pipeline runs the poisoned Jenkinsfile, and a Global-scope release-token credential is exfiltrated to the build console in a form the masker will not catch (OWASP CICD-SEC-1, Insufficient Flow Control Mechanisms). Reproduces the \"Mock Turtle\" challenge from CI/CD Goat.",
+  "category": "cicd",
+  "difficulty": 3,
+  "evidence_kind": "SECRET",
+  "capabilities": [
+    "flow-control-automerge-bypass"
+  ],
+  "question": "Bypass the auto-merge bot on the Wonderland/mock-turtle repository with a crafted pull request and exfiltrate the Global-scope release-token credential from the main build's console."
+}

@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=https://www.isoloom.com/schema/v1.json
+# Mock Turtle (CI/CD Goat, CICD-SEC-1 Insufficient Flow Control): a live, two-machine CI/CD lab.
+# A Jenkins controller runs an AUTO-MERGE bot for Wonderland's mock-turtle repository, hosted on a
+# Gitea server. The bot merges a pull request into the protected main branch automatically when the
+# change looks like a harmless version bump — it checks three weak conditions: (1) the pull request
+# adds no net words (added words minus removed words is zero), (2) the `version` file keeps its
+# dotted structure, (3) the `version` file is among the changed files. None of these stops an
+# attacker: they append a payload to the Jenkinsfile AND delete an equal number of words elsewhere
+# (so the net is still zero), bump the version, and open a pull request. The bot merges it to main,
+# the main pipeline then runs the now-poisoned Jenkinsfile, and the flag — a Global-scope Jenkins
+# credential the poisoned step binds — lands in the build console in a form the masker will not
+# catch. This is an auto-merge bypass via insufficient flow control. See https://www.isoloom.com.
+version: 1
+name: cicd-goat-mock-turtle
+
+networks:
+  lab: { cidr: 10.44.0.0/24 }
+
+# The per-player flag, issued by CyberCTF and handed to the lab by the launcher as a FILE (never an
+# environment value, so it never shows in `docker inspect`, an image layer or a generated file). The
+# Jenkins entrypoint stages it into the directory JCasC reads file secrets from, so the `flag10`
+# credential resolves at boot. Optional: an offline start (local, CI) leaves it empty and the lab
+# stages its inert development placeholder instead, so the lab still comes up and is solvable.
+#   CTF_FLAG_MOCK_TURTLE  objective `mock-turtle`  (SECRET: Wonderland's flag10 release token)
+inputs:
+  CTF_FLAG_MOCK_TURTLE:
+    description: the mock-turtle flag, injected into the Jenkins credential store as flag10 (GLOBAL)
+
+machines:
+  # Wonderland's git host: Gitea, holding the private Wonderland/mock-turtle repository. The setup
+  # job provisions the org, the attacker user (alice, write), the auto-merge bot user (mock-turtle-ci,
+  # write + the only user allowed to push/merge into the protected main) and the Jenkins poller
+  # (jenkins, read), pushes the sample project with its Jenkinsfile + version file, then protects
+  # main so the auto-merge bot is the ONLY path onto it. No `publish` number: `publish: true` asks
+  # the runner for a free host port it picks at `up` time (dynamic), so two labs never collide.
+  gitea:
+    app:
+      build: build/gitea
+    networks: { lab: 12 }
+    resources: { cpus: 1, memory_mb: 1024 }
+    volumes: { data: /data }
+    ports:
+      web: { port: 3000, protocol: http, publish: true }
+    setup: [build/gitea/seed.sh]
+
+  # Wonderland's Jenkins controller: two git-polling pipelines for mock-turtle. `mock-turtle-automerge`
+  # is the auto-merge bot (runs every minute, evaluates each open pull request against the three weak
+  # conditions and merges it to main when they pass). `mock-turtle` builds the main branch's own
+  # Jenkinsfile (pull-request branches are never built, so the only way an attacker's change runs is
+  # after it reaches main through the bot). flag10 is a GLOBAL-scope credential the poisoned main
+  # pipeline binds — the upstream mis-configuration. The per-player flag arrives as a root-only file;
+  # only the entrypoint reads it.
+  jenkins:
+    app:
+      build: build/jenkins
+    networks: { lab: 10 }
+    resources: { cpus: 2, memory_mb: 2048 }
+    ports:
+      web: { port: 8080, protocol: http, publish: true }
+    files:
+      - { path: /run/lab/secrets/flag10, input: CTF_FLAG_MOCK_TURTLE }
+
+# From the player's side, on every target: reachability checks that both services answer, and the
+# intended path as a solver that runs inside the Jenkins controller — it performs the auto-merge
+# bypass end to end (clone with the attacker's write creds, append a flag-exfiltration step to the
+# Jenkinsfile, bump the version, delete an equal number of words from the README so the net word
+# count stays zero, open a pull request, let the bot merge it to main, trigger/await the main build,
+# read the build console) and proves the Global-scope flag was exfiltrated once the crafted pull
+# request auto-merged, without ever printing it. Jenkins is slow to boot and the attack needs a
+# merge plus a build, so the waits are generous.
+checks:
+  - name: the Gitea git host answers
+    http: http://gitea:3000/
+    wait: 3m
+  - name: the Jenkins controller answers
+    http: http://jenkins:8080/login
+    wait: 5m
+  - name: a crafted pull request bypasses the auto-merge bot and the flag credential is exfiltrated
+    from: jenkins
+    exec: bash /usr/local/bin/mock-turtle-solve
+    wait: 9m
+
+# Shown when the lab is up.
+message: |
+  Wonderland merges code with a bot. A **Jenkins** controller watches the **Wonderland/mock-turtle**
+  repository (hosted on **Gitea**) and **auto-merges** a pull request into the protected `main`
+  branch when the change looks like a harmless version bump. You have an account with **write**
+  access to the repo — but you cannot push to `main` or merge pull requests yourself; only the bot
+  can.
+
+  - Gitea:   {{ machines.gitea.ports.web.url }}   (sign in as `alice` / `alice`)
+  - Jenkins: {{ machines.jenkins.ports.web.url }} (sign in as `admin` / `admin` to read build consoles)
+
+  The bot auto-merges a pull request when all three of these hold: it adds **no net words** (words
+  added minus words removed is zero), the `version` file keeps its dotted `x.y.z` structure, and the
+  `version` file is one of the changed files. None of that stops you appending a payload to the
+  `Jenkinsfile` — just delete the same number of words from somewhere else (the `README.md`) so the
+  net word count stays zero.
+
+  ```
+  git clone {{ machines.gitea.ports.web.url }}Wonderland/mock-turtle.git
+  ```
+
+  Add a step to the `Jenkinsfile` that binds Wonderland's release token (`flag10`, a Global-scope
+  Jenkins credential) and prints it; bump the `version`; balance the word count; open a pull request.
+  The bot merges it to `main`, and the `main` pipeline then runs your step. It will not print the
+  token in plaintext — it transforms it first (reverse, then base64: recover it with
+  `base64 -d | rev`); read the build's console output in Jenkins.
